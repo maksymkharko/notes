@@ -123,6 +123,12 @@ button.danger:hover {
     margin-bottom: 10px;
 }
 
+.empty-notes {
+    color: #888;
+    text-align: center;
+    margin-top: 40px;
+}
+
 .editor-buttons {
     display: flex;
     gap: 10px;
@@ -132,4 +138,12 @@ button.danger:hover {
     .notes-list {
         grid-template-columns: 1fr;
     }
+}
+
+.note-editor {
+    display: none;
+}
+
+.notes-list {
+    display: grid;
 }
