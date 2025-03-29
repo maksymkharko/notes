@@ -1,14 +1,17 @@
 // Initialize Telegram Web App
 const tg = window.Telegram.WebApp;
+
+// Wait for Telegram to initialize
+tg.ready();
 tg.expand();
 
 // DOM Elements
 const notesList = document.getElementById('notes-list');
 const noteEditor = document.getElementById('note-editor');
-const newNoteBtn = document.getElementById('new-note');
-const saveNoteBtn = document.getElementById('save-note');
-const cancelEditBtn = document.getElementById('cancel-edit');
-const deleteNoteBtn = document.getElementById('delete-note');
+const newNoteBtn = document.getElementById('new-note-btn');
+const saveNoteBtn = document.getElementById('save-note-btn');
+const cancelEditBtn = document.getElementById('cancel-edit-btn');
+const deleteNoteBtn = document.getElementById('delete-note-btn');
 const noteTitle = document.getElementById('note-title');
 const noteContent = document.getElementById('note-content');
 
@@ -17,25 +20,35 @@ let notes = [];
 let currentNoteId = null;
 
 // Initialize app
-function init() {
+function initApp() {
     loadNotes();
     setupEventListeners();
 }
 
 // Load notes from Telegram Cloud Storage
 function loadNotes() {
-    const savedNotes = tg.CloudStorage.getItem('notes');
-    if (savedNotes) {
-        notes = JSON.parse(savedNotes);
-        renderNotes();
-    } else {
-        notes = [];
-    }
+    tg.CloudStorage.getItems(['notes'], (err, data) => {
+        if (!err && data && data.notes) {
+            try {
+                notes = JSON.parse(data.notes);
+                renderNotes();
+            } catch (e) {
+                console.error('Error parsing notes:', e);
+                notes = [];
+            }
+        } else {
+            notes = [];
+        }
+    });
 }
 
 // Save notes to Telegram Cloud Storage
 function saveNotes() {
-    tg.CloudStorage.setItem('notes', JSON.stringify(notes));
+    tg.CloudStorage.setItem('notes', JSON.stringify(notes), (err) => {
+        if (err) {
+            console.error('Error saving notes:', err);
+        }
+    });
 }
 
 // Render notes list
@@ -43,7 +56,7 @@ function renderNotes() {
     notesList.innerHTML = '';
     
     if (notes.length === 0) {
-        notesList.innerHTML = '<p>No notes yet. Create your first note!</p>';
+        notesList.innerHTML = '<p class="empty-notes">No notes yet. Create your first note!</p>';
         return;
     }
     
@@ -52,7 +65,7 @@ function renderNotes() {
         noteCard.className = 'note-card';
         noteCard.innerHTML = `
             <h3>${note.title || 'Untitled Note'}</h3>
-            <p>${note.content || ''}</p>
+            <p>${note.content.substring(0, 100) || ''}${note.content.length > 100 ? '...' : ''}</p>
         `;
         noteCard.addEventListener('click', () => openNoteEditor(note.id));
         notesList.appendChild(noteCard);
@@ -74,6 +87,7 @@ function openNoteEditor(noteId = null) {
     
     notesList.style.display = 'none';
     noteEditor.style.display = 'block';
+    noteTitle.focus();
 }
 
 // Close note editor
@@ -87,6 +101,11 @@ function closeNoteEditor() {
 function saveNote() {
     const title = noteTitle.value.trim();
     const content = noteContent.value.trim();
+    
+    if (!title && !content) {
+        closeNoteEditor();
+        return;
+    }
     
     if (currentNoteId !== null) {
         // Update existing note
@@ -128,7 +147,19 @@ function setupEventListeners() {
     saveNoteBtn.addEventListener('click', saveNote);
     cancelEditBtn.addEventListener('click', closeNoteEditor);
     deleteNoteBtn.addEventListener('click', deleteNote);
+    
+    // Handle Enter key in title field
+    noteTitle.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            noteContent.focus();
+        }
+    });
 }
 
-// Initialize the app
-init();
+// Initialize the app when Telegram is ready
+if (tg.initDataUnsafe) {
+    initApp();
+} else {
+    tg.onEvent('viewportChanged', initApp);
+}
